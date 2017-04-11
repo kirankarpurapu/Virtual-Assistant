@@ -1,0 +1,3 @@
+[submodule "VirtualAssistant-Android"]
+	path = VirtualAssistant-Android
+	url = https://github.com/aadamsaleem/VirtualAssistant-Android
