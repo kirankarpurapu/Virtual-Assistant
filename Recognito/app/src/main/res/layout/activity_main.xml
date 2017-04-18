@@ -18,16 +18,17 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_marginTop="50dp"
-            android:text="Camera" />
+            android:text="New Entry" />
+
+
 
         <Button
-            android:id="@+id/upload"
-
+            android:id="@+id/verify"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_marginTop="50dp"
-            android:text="Upload" />
+            android:text="Get Info" />
 
         <Button
             android:id="@+id/snackbar"
