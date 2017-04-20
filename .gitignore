@@ -3,3 +3,4 @@ shape_predictor_68_face_landmarks.dat
 images
 test_images
 flask/*.jpg
+UserBehaviour/data
