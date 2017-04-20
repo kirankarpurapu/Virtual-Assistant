@@ -36,13 +36,18 @@ public class UserInfoActivity extends Activity {
     private EditText name, phoneNumber, email, additionalInfo;
     private Button cancel, submit;
     private String picturePath, byteString = null;
-    private final String TAG = "RECOGNITO", URL = "http://192.168.1.164:5000/newImage";
+    private final String TAG = "RECOGNITO";
+    //    private final String NEW_IMAGE_URL = "http://192.168.1.164:5000/newImage";
+    private final String BASE_URL = "http://98.116.40.213:5000/";
+    private final String NEW_IMAGE_URL = BASE_URL + "newImage";
+    private final String TEST_IMAGE_URL = BASE_URL + "testImage";
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.user_info);
         picturePath = getIntent().getStringExtra("PICTURE_PATH");
+        Log.d(TAG, "user activity: " + picturePath);
         name = (EditText) findViewById(R.id.NameEditText);
         phoneNumber = (EditText) findViewById(R.id.PhoneEditText);
         email = (EditText) findViewById(R.id.EmailEditText);
@@ -70,26 +75,27 @@ public class UserInfoActivity extends Activity {
             Toast.makeText(getApplicationContext(), "no picture to post", Toast.LENGTH_SHORT).show();
             return;
         }
-        Log.d(TAG, " path : " + picturePath);
+        Log.d(TAG, " path of image: " + picturePath);
 //        Toast.makeText(getApplicationContext(), "Path: " + picturePath, Toast.LENGTH_LONG).show();
         Bitmap bm = BitmapFactory.decodeFile(picturePath);
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
         bm.compress(Bitmap.CompressFormat.JPEG, 90, bao);
         byte[] ba = bao.toByteArray();
         byteString = Base64.encodeToString(ba, Base64.DEFAULT);
-        Log.d("TAG", "-----base 64" + byteString);
         JSONObject info = getImageInformation();
         Image image = new Image(byteString, "Kiran", info);
         new UploadToServer().execute(image);
     }
 
-    public class UploadToServer extends AsyncTask<Image, Void, JSONObject> {
+    class UploadToServer extends AsyncTask<Image, Void, JSONObject> {
 
         private ProgressDialog pd = new ProgressDialog(UserInfoActivity.this);
 
         protected void onPreExecute() {
+            Log.d(TAG, "Upload started");
             super.onPreExecute();
-            pd.setMessage("Wait image uploading!");
+            pd.setMessage("Wait, image uploading!");
+            pd.setCancelable(false);
             pd.show();
         }
 
@@ -97,6 +103,9 @@ public class UserInfoActivity extends Activity {
         protected JSONObject doInBackground(Image... image) {
             Image thisImage = image[0];
 
+//            Log.d("TAG", "-----base 64" + byteString);
+            Log.d("TAG", "-----base 64" + thisImage.getName());
+            Log.d("TAG", "-----base 64" + NEW_IMAGE_URL);
             ArrayList<NameValuePair> nameValuePairs = new ArrayList<>();
             nameValuePairs.add(new BasicNameValuePair("base64", thisImage.getData()));
             nameValuePairs.add(new BasicNameValuePair("ImageName", System.currentTimeMillis() + thisImage.getName() + ".jpg"));
@@ -104,7 +113,7 @@ public class UserInfoActivity extends Activity {
 
             try {
                 HttpClient httpclient = new DefaultHttpClient();
-                HttpPost httppost = new HttpPost(URL);
+                HttpPost httppost = new HttpPost(NEW_IMAGE_URL);
                 httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
                 HttpResponse response = httpclient.execute(httppost);
                 String st = EntityUtils.toString(response.getEntity());
@@ -130,10 +139,10 @@ public class UserInfoActivity extends Activity {
         String additionalInfoString = additionalInfo.getText().toString();
         JSONObject obj = null;
 
-        nameString = "kiran";
-        phoneNumberString = "1234";
-        emailString = "kk@kk.com";
-        additionalInfoString = "justlame";
+        if (nameString.length() < 2) nameString = "kiran";
+        if (phoneNumberString.length() < 2) phoneNumberString = "1234";
+        if (emailString.length() < 2) emailString = "kk@kk.com";
+        if (additionalInfoString.length() < 2) additionalInfoString = "justlame";
         try {
             obj = new JSONObject();
             obj.put("name", nameString);
