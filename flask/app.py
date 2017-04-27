@@ -14,6 +14,7 @@ import numpy as np
 from boto.s3.key import Key
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # for 16MB max-limit.
 
 # aws connections
 # connection_s3 = boto.connect_s3(profile_name = "Recognito-account")
@@ -29,6 +30,7 @@ table = connection_dynamodb.get_table(table_name)
 
 #photo recognition params
 TOLERANCE = 0.6
+
 
 # helper functions
 
@@ -47,7 +49,7 @@ def write_to_dynamodb(user_id, photo_id, image_data, url, encodings):
 	print("email", image_data['email'])
 	print("additionalinfo", image_data['additionalinfo'])
 	print("url", url)
-	print("encodings", encodings)
+	print("encodings length", len(encodings))
 	encoding_string = ','.join(str(x) for x in encodings)
 	print( connection_dynamodb.describe_table(table_name))
 	item = {
@@ -56,13 +58,12 @@ def write_to_dynamodb(user_id, photo_id, image_data, url, encodings):
 		'phone' : image_data['phonenumber'],
 		'email' : image_data['email'],
 		'additional info' : str(image_data['additionalinfo']),
-		# 'encodings' : encodings.tostring(),
 		'encodings' : encoding_string,
 		}
 	item_row = table.new_item(hash_key = str(user_id), range_key = str(photo_id), attrs = item)
-	response = item_row.put()
-	print("The response from dynamo db is", response)
-	return "something"
+	dynamodb_response = item_row.put()
+	print("The response from dynamo db is", dynamodb_response)
+	return dynamodb_response
 
 
 def write_to_file(filename, file_data):
@@ -82,7 +83,7 @@ def upload_to_s3(filename):
 	key.set_metadata('Content-Type', 'image/jpeg')
 	key.set_acl('public-read')
 	url = key.generate_url(expires_in=0, query_auth=False)
-	print("The url is ", url)
+	print("The S3 url is ", url)
 	return url
 
 def get_face_encodings(path_to_image):
@@ -99,25 +100,19 @@ def get_face_encodings(path_to_image):
 	shapes_faces = [shape_predictor(image, face) for face in detected_faces]
 	return [np.array(face_recognition_model.compute_face_descriptor(image, face_pose, 1)) for face_pose in shapes_faces]	
 
-def write_to_database(json, image):
+def write_to_database(json, image, encodings):
+	url = upload_to_s3(image)
+	print("The S3 url is ", url)
 	user_id = 1
 	u_id = uuid.uuid4()
-	url = upload_to_s3(image)
-	encodings = get_face_encodings(image)
-	if len(encodings) >= 1:
-		encodings = encodings[0]
-	print("The encoding for the photo:", encodings)
-	print("The S3 url is ", url)
-
 	# need to write to the dynamo db
-	write_to_dynamodb(user_id, u_id, json, url, encodings)
-	return 1
+	dynamodb_response = write_to_dynamodb(user_id, u_id, json, url, encodings)
+	return dynamodb_response
 
 def get_matching_photo_details(image):
 	# get all the rows from dynamo db
-	# images = table.get_item(hash_key = str(1), range_key = "30122458-4051-4fe3-a19a-d0aa18e8924a")
-	# images = table.get_item(hash_key = str(1), range_key = None)
 	images = table.scan()
+	
 	encodings_array = []
 	info_array = []
 	for item in images:
@@ -136,13 +131,17 @@ def get_matching_photo_details(image):
 		encodings_values_as_array = np.array([float(x) for x in str(encodings).split(',')])
 		encodings_array.append(encodings_values_as_array)
 	
+	print("found {0} images in the database").format(len(encodings_array))
 	# get the encodings of this photo
 	test_encodings = np.array(get_face_encodings(image))
 	if (len(test_encodings) < 1):
 		return 'user not found'
-	matches = compare_face_encodings(encodings_array, test_encodings)
-	print("matches ", matches)
-	
+	else:
+		matches = compare_face_encodings(encodings_array, test_encodings)
+		print("matches ", matches)
+		return process_matches(matches, info_array)
+
+def process_matches(matches, info_array):	
 	match_found = False
 	counter = 0
 	for match in matches:
@@ -151,26 +150,18 @@ def get_matching_photo_details(image):
 			match_found = True
 			print("found a match")
 			break
-	
 	if not match_found:
 		print("no user at all")
 		return 'user not found'
 	else:
-		# return info_array[counter]
-		print("counter = ", counter)
 		if counter < len(info_array):
 			print(info_array[counter])
 		return 'user found'	
-			
-
-
 
 # routes
 
-@app.route('/')
-def hello():
-    return "Hello World!"
 
+#type: POST, params = 'base64', 'ImageName', 'ImageInfo'
 
 @app.route('/newImage', methods=['POST'])
 def new_image():
@@ -178,7 +169,7 @@ def new_image():
 		print("got a post request")
 		data = request.form
 		if 'base64' not in data or 'ImageName' not in data or 'ImageInfo' not in data:
-			return 'you fool'	
+			return 'insufficient data sent, please retry'	
 		base64_data = data['base64']
 		image_data = base64.b64decode(base64_data)
 		image_name = str(data['ImageName'])
@@ -186,26 +177,44 @@ def new_image():
 		print("got all the required info")
 		image_json = json.loads(image_info)
 		file = write_to_file(image_name, image_data)
-# to start a parallel thread:
-		thread.start_new_thread(write_to_database, (image_json, image_name,))
-		# write_to_database(image_json, image_name)
-	return "Yo"   
+		encodings = get_face_encodings(image_name)
+		if len(encodings) == 1:
+			encodings = encodings[0]
+			print("The encoding for the photo:", encodings)
+			thread.start_new_thread(write_to_database, (image_json, image_name, encodings, ))
+		elif len(encodings) > 1:
+			print("cannot handle multiple people in the image")
+			return "cannot handle multiple people in the image"	
+		else:
+			print("no human found in the photo")
+			return 'couldnt find a person in the image'	
+	return "All is Well"   
 
+
+# type : POST, params: 'base64'
 @app.route('/testImage', methods = ['POST'])
 def test_image():
 	if request.method == 'POST':
 		print("TESTING THE IMAGE")
 		data = request.form
 		if 'base64' not in data:
-			return 'you fool'	
+			return 'insufficient data in the post request'	
 		base64_data = data['base64']
 		image_data = base64.b64decode(base64_data)
-		test_file = write_to_file("test.jpg", image_data)
-		return_value = get_matching_photo_details("test.jpg")
+		# test_file = write_to_file("test.jpg", image_data)
+		return_value = get_matching_photo_details("selena.jpg")
 		return return_value
+
+#error handlers
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+	print("REQUEST ENTITY TOO LARGE")
+	return 'File Too Large'
 
 
 # starting the server
 
 if __name__ == '__main__':
+	app.config.update(MAX_CONTENT_LENGTH = 50000000)
 	app.run(host='0.0.0.0', debug = True)

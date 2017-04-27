@@ -1,5 +1,4 @@
 package com.example.kirank.recognito;
-
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.graphics.Bitmap;
@@ -13,7 +12,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
-
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
@@ -24,8 +22,12 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
-
+import com.example.kirank.recognito.Constants;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 
 /**
@@ -33,14 +35,12 @@ import java.util.ArrayList;
  */
 
 public class UserInfoActivity extends Activity {
+    private static final double IMAGE_MAX_SIZE = 70d;
     private EditText name, phoneNumber, email, additionalInfo;
     private Button cancel, submit;
     private String picturePath, byteString = null;
     private final String TAG = "RECOGNITO";
-    //    private final String NEW_IMAGE_URL = "http://192.168.1.164:5000/newImage";
-    private final String BASE_URL = "http://98.116.40.213:5000/";
-    private final String NEW_IMAGE_URL = BASE_URL + "newImage";
-    private final String TEST_IMAGE_URL = BASE_URL + "testImage";
+
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -70,16 +70,23 @@ public class UserInfoActivity extends Activity {
         });
     }
 
+    /**
+     *
+     * @param picturePath
+     */
     public void uploadPicture(String picturePath) {
         if (picturePath == null) {
             Toast.makeText(getApplicationContext(), "no picture to post", Toast.LENGTH_SHORT).show();
             return;
         }
         Log.d(TAG, " path of image: " + picturePath);
-//        Toast.makeText(getApplicationContext(), "Path: " + picturePath, Toast.LENGTH_LONG).show();
         Bitmap bm = BitmapFactory.decodeFile(picturePath);
+        Log.d("Original   dimensions", bm.getWidth()+" "+bm.getHeight());
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
-        bm.compress(Bitmap.CompressFormat.JPEG, 90, bao);
+        bm.compress(Bitmap.CompressFormat.JPEG, 100, bao);
+//        File file = new File(picturePath);
+//        bm = decodeFile(file);
+        Log.d("compressed   dimensions", bm.getWidth()+" "+bm.getHeight());
         byte[] ba = bao.toByteArray();
         byteString = Base64.encodeToString(ba, Base64.DEFAULT);
         JSONObject info = getImageInformation();
@@ -87,7 +94,51 @@ public class UserInfoActivity extends Activity {
         new UploadToServer().execute(image);
     }
 
-    class UploadToServer extends AsyncTask<Image, Void, JSONObject> {
+    private Bitmap decodeFile(File f){
+        Bitmap bitmap = null;
+
+        //Decode image size
+        BitmapFactory.Options o = new BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+
+        FileInputStream fis = null;
+        try {
+            fis = new FileInputStream(f);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        BitmapFactory.decodeStream(fis, null, o);
+        try {
+            fis.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        int scale = 1;
+        if (o.outHeight > IMAGE_MAX_SIZE || o.outWidth > IMAGE_MAX_SIZE) {
+            scale = (int)Math.pow(2, (int) Math.ceil(Math.log(IMAGE_MAX_SIZE /
+                    (double) Math.max(o.outHeight, o.outWidth)) / Math.log(0.5)));
+        }
+
+        //Decode with inSampleSize
+        BitmapFactory.Options o2 = new BitmapFactory.Options();
+        o2.inSampleSize = scale;
+        try {
+            fis = new FileInputStream(f);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        bitmap = BitmapFactory.decodeStream(fis, null, o2);
+        try {
+            fis.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return bitmap;
+    }
+
+    private class UploadToServer extends AsyncTask<Image, Void, String> {
 
         private ProgressDialog pd = new ProgressDialog(UserInfoActivity.this);
 
@@ -100,31 +151,28 @@ public class UserInfoActivity extends Activity {
         }
 
         @Override
-        protected JSONObject doInBackground(Image... image) {
+        protected String doInBackground(Image... image) {
             Image thisImage = image[0];
-
-//            Log.d("TAG", "-----base 64" + byteString);
+            String resultString = null;
             Log.d("TAG", "-----base 64" + thisImage.getName());
-            Log.d("TAG", "-----base 64" + NEW_IMAGE_URL);
             ArrayList<NameValuePair> nameValuePairs = new ArrayList<>();
             nameValuePairs.add(new BasicNameValuePair("base64", thisImage.getData()));
             nameValuePairs.add(new BasicNameValuePair("ImageName", System.currentTimeMillis() + thisImage.getName() + ".jpg"));
             nameValuePairs.add(new BasicNameValuePair("ImageInfo", thisImage.getInfo().toString()));
-
             try {
                 HttpClient httpclient = new DefaultHttpClient();
-                HttpPost httppost = new HttpPost(NEW_IMAGE_URL);
+                HttpPost httppost = new HttpPost(Constants.NEW_IMAGE_URL);
                 httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
                 HttpResponse response = httpclient.execute(httppost);
-                String st = EntityUtils.toString(response.getEntity());
-                Log.d(TAG, "In the try Loop" + st);
+                resultString = EntityUtils.toString(response.getEntity());
+                Log.d(TAG, "In the try Loop" + resultString);
             } catch (Exception e) {
                 Log.d(TAG, "Error in http connection " + e.toString());
             }
-            return null;
+            return resultString;
         }
 
-        protected void onPostExecute(JSONObject jsonResultObject) {
+        protected void onPostExecute(String jsonResultObject) {
             super.onPostExecute(jsonResultObject);
             pd.hide();
             pd.dismiss();
@@ -132,6 +180,10 @@ public class UserInfoActivity extends Activity {
         }
     }
 
+    /**
+     *
+     * @return JSONObject
+     */
     public JSONObject getImageInformation() {
         String nameString = name.getText().toString();
         String phoneNumberString = phoneNumber.getText().toString();
@@ -139,10 +191,20 @@ public class UserInfoActivity extends Activity {
         String additionalInfoString = additionalInfo.getText().toString();
         JSONObject obj = null;
 
-        if (nameString.length() < 2) nameString = "kiran";
-        if (phoneNumberString.length() < 2) phoneNumberString = "1234";
-        if (emailString.length() < 2) emailString = "kk@kk.com";
-        if (additionalInfoString.length() < 2) additionalInfoString = "justlame";
+        //dummy data if the user hasn't filled any info
+        if (2 > nameString.length()) {
+            nameString = "kiran";
+        }
+        if (2 > phoneNumberString.length()) {
+            phoneNumberString = "1234";
+        }
+        if (2 > emailString.length()) {
+            emailString = "kk@kk.com";
+        }
+        if (2 > additionalInfoString.length()) {
+            additionalInfoString = "justlame";
+        }
+
         try {
             obj = new JSONObject();
             obj.put("name", nameString);
@@ -151,8 +213,7 @@ public class UserInfoActivity extends Activity {
             obj.put("additionalinfo", additionalInfoString);
         } catch (JSONException e) {
             e.printStackTrace();
-        } finally {
-            return obj;
         }
+        return obj;
     }
 }
