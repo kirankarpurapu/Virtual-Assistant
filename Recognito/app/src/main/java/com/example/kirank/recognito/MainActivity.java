@@ -21,6 +21,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+import com.android.internal.http.multipart.MultipartEntity;
+
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
@@ -87,23 +89,6 @@ public class MainActivity extends AppCompatActivity {
         clickPic(1);
     }
 
-//    private File createImageFile() throws IOException {
-//        // Create an image file name
-//        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-//        String imageFileName = "JPEG_" + timeStamp + "_";
-//        File storageDir = new File(Environment.getExternalStoragePublicDirectory(
-//                Environment.DIRECTORY_DCIM), "Camera");
-//        File image = File.createTempFile(
-//                imageFileName,  /* prefix */
-//                ".jpg",         /* suffix */
-//                storageDir      /* directory */
-//        );
-//
-//        // Save a file: path for use with ACTION_VIEW intents
-//       String mCurrentPhotoPath = "file:" + image.getAbsolutePath();
-//        return image;
-//    }
-
     /**
      * @param requestCode
      */
@@ -152,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d("Compressed dimensions", bm.getWidth()+" "+bm.getHeight());
             byte[] ba = bao.toByteArray();
             byteString = Base64.encodeToString(ba, Base64.DEFAULT);
-            final Image image = new Image(byteString, null, null);
+            final Image image = new Image(byteString, null, null, null);
 
             //upload the picture to test against other images from the database
             new UploadToServer().execute(image);
@@ -178,6 +163,7 @@ public class MainActivity extends AppCompatActivity {
         protected String doInBackground(Image... image) {
             Image thisImage = image[0];
             String resultString = null;
+//            MultipartEntity multipartEntity = new MultipartEntity();
             ArrayList<NameValuePair> nameValuePairs = new ArrayList<>();
             nameValuePairs.add(new BasicNameValuePair("base64", thisImage.getData()));
             try {

@@ -22,6 +22,11 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import com.android.internal.http.multipart.FilePart;
+import com.android.internal.http.multipart.MultipartEntity;
+import com.android.internal.http.multipart.Part;
+import com.android.internal.http.multipart.StringPart;
 import com.example.kirank.recognito.Constants;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -74,7 +79,7 @@ public class UserInfoActivity extends Activity {
      *
      * @param picturePath
      */
-    public void uploadPicture(String picturePath) {
+    private void uploadPicture(String picturePath) {
         if (picturePath == null) {
             Toast.makeText(getApplicationContext(), "no picture to post", Toast.LENGTH_SHORT).show();
             return;
@@ -84,13 +89,13 @@ public class UserInfoActivity extends Activity {
         Log.d("Original   dimensions", bm.getWidth()+" "+bm.getHeight());
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
         bm.compress(Bitmap.CompressFormat.JPEG, 100, bao);
-//        File file = new File(picturePath);
-//        bm = decodeFile(file);
+        File imageFile = new File(picturePath);
+//        bm = decodeFile(imageFile);
         Log.d("compressed   dimensions", bm.getWidth()+" "+bm.getHeight());
         byte[] ba = bao.toByteArray();
         byteString = Base64.encodeToString(ba, Base64.DEFAULT);
         JSONObject info = getImageInformation();
-        Image image = new Image(byteString, "Kiran", info);
+        Image image = new Image(byteString, "Kiran", info, imageFile);
         new UploadToServer().execute(image);
     }
 
@@ -155,14 +160,29 @@ public class UserInfoActivity extends Activity {
             Image thisImage = image[0];
             String resultString = null;
             Log.d("TAG", "-----base 64" + thisImage.getName());
-            ArrayList<NameValuePair> nameValuePairs = new ArrayList<>();
-            nameValuePairs.add(new BasicNameValuePair("base64", thisImage.getData()));
-            nameValuePairs.add(new BasicNameValuePair("ImageName", System.currentTimeMillis() + thisImage.getName() + ".jpg"));
-            nameValuePairs.add(new BasicNameValuePair("ImageInfo", thisImage.getInfo().toString()));
+
+
+
+//            ArrayList<NameValuePair> nameValuePairs = new ArrayList<>();
+//            nameValuePairs.add(new BasicNameValuePair("base64", thisImage.getData()));
+//            nameValuePairs.add(new BasicNameValuePair("ImageName", System.currentTimeMillis() + thisImage.getName() + ".jpg"));
+//            nameValuePairs.add(new BasicNameValuePair("ImageInfo", thisImage.getInfo().toString()));
             try {
                 HttpClient httpclient = new DefaultHttpClient();
                 HttpPost httppost = new HttpPost(Constants.NEW_IMAGE_URL);
-                httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
+//              httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
+// trial
+
+                Part[] parts = {
+                        new FilePart("file", thisImage.getFile()),
+                        new StringPart("base64", thisImage.getData()),
+                        new StringPart("ImageName", System.currentTimeMillis() + thisImage.getName() + ".jpg"),
+                        new StringPart("ImageInfo", thisImage.getInfo().toString())
+                };
+                MultipartEntity multipartEntity = new MultipartEntity(parts, httppost.getParams());
+                httppost.setEntity(multipartEntity);
+
+//end of trial
                 HttpResponse response = httpclient.execute(httppost);
                 resultString = EntityUtils.toString(response.getEntity());
                 Log.d(TAG, "In the try Loop" + resultString);

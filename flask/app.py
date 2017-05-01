@@ -12,6 +12,7 @@ import scipy.ndimage
 from scipy.ndimage import imread
 import numpy as np
 from boto.s3.key import Key
+from werkzeug import secure_filename
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # for 16MB max-limit.
@@ -166,29 +167,39 @@ def process_matches(matches, info_array):
 @app.route('/newImage', methods=['POST'])
 def new_image():
 	if request.method == 'POST':
-		print("got a post request")
-		data = request.form
-		if 'base64' not in data or 'ImageName' not in data or 'ImageInfo' not in data:
-			return 'insufficient data sent, please retry'	
-		base64_data = data['base64']
-		image_data = base64.b64decode(base64_data)
-		image_name = str(data['ImageName'])
-		image_info = str(data['ImageInfo'])
-		print("got all the required info")
-		image_json = json.loads(image_info)
-		file = write_to_file(image_name, image_data)
-		encodings = get_face_encodings(image_name)
-		if len(encodings) == 1:
-			encodings = encodings[0]
-			print("The encoding for the photo:", encodings)
-			thread.start_new_thread(write_to_database, (image_json, image_name, encodings, ))
-		elif len(encodings) > 1:
-			print("cannot handle multiple people in the image")
-			return "cannot handle multiple people in the image"	
-		else:
-			print("no human found in the photo")
-			return 'couldnt find a person in the image'	
-	return "All is Well"   
+		print("got a new image post request")
+		files = request.files
+		if 'file' not in files:
+			print("no file found in the new image post request")
+			return 'no image found in the post request'
+		f = request.files['file']
+		image_name = secure_filename(f.filename)
+      	f.save(image_name)
+      	print("The name of the file is ", image_name)
+      	print("new method to save the file worked")
+      	data = request.form
+      	if 'base64' not in data or 'ImageName' not in data or 'ImageInfo' not in data:
+      		return 'insufficient data sent, please retry'
+      	else:		
+			# base64_data = data['base64']
+			# image_data = base64.b64decode(base64_data)
+			# image_name = str(data['ImageName'])
+			image_info = str(data['ImageInfo'])
+			print("got all the required info")
+			image_json = json.loads(image_info)
+			# file = write_to_file(image_name, image_data)
+			encodings = get_face_encodings(image_name)
+			if len(encodings) == 1:
+				encodings = encodings[0]
+				print("The encoding for the photo:", encodings)
+				thread.start_new_thread(write_to_database, (image_json, image_name, encodings, ))
+			elif len(encodings) > 1:
+				print("cannot handle multiple people in the image")
+				return "cannot handle multiple people in the image"	
+			else:
+				print("no human found in the photo")
+				return 'couldnt find a person in the image'	
+			return "All is Well"   
 
 
 # type : POST, params: 'base64'
@@ -204,6 +215,23 @@ def test_image():
 		# test_file = write_to_file("test.jpg", image_data)
 		return_value = get_matching_photo_details("selena.jpg")
 		return return_value
+
+
+@app.route('/dummy', methods = ['POST'])
+def dummy():
+	print("got a post request")
+	data = request.form
+	if 'base64' not in data:
+		print("insufficient data")
+		return 'insufficient data sent, please retry'	
+	base64_data = data['base64']
+	image_data = base64.b64decode(base64_data)
+	image_name = str(data['ImageName'])
+	image_info = str(data['ImageInfo'])
+	print("got all the required info")
+	image_json = json.loads(image_info)
+	file = write_to_file(image_name, image_data)
+
 
 #error handlers
 
