@@ -15,7 +15,7 @@ from boto.s3.key import Key
 from werkzeug import secure_filename
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # for 16MB max-limit.
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # for 16MB max-limit.
 
 # aws connections
 # connection_s3 = boto.connect_s3(profile_name = "Recognito-account")
@@ -161,6 +161,10 @@ def process_matches(matches, info_array):
 
 # routes
 
+@app.route("/")
+def hello():
+    return "<h1 style='color:blue'>Welcome to Recognito!</h1>"
+
 
 #type: POST, params = 'base64', 'ImageName', 'ImageInfo'
 
@@ -173,6 +177,9 @@ def new_image():
 			print("no file found in the new image post request")
 			return 'no image found in the post request'
 		f = request.files['file']
+		if f.filename == '':
+			print("no filename found")
+			return 'no filename found'
 		image_name = secure_filename(f.filename)
       	f.save(image_name)
       	print("The name of the file is ", image_name)
@@ -216,23 +223,6 @@ def test_image():
 		return_value = get_matching_photo_details("selena.jpg")
 		return return_value
 
-
-@app.route('/dummy', methods = ['POST'])
-def dummy():
-	print("got a post request")
-	data = request.form
-	if 'base64' not in data:
-		print("insufficient data")
-		return 'insufficient data sent, please retry'	
-	base64_data = data['base64']
-	image_data = base64.b64decode(base64_data)
-	image_name = str(data['ImageName'])
-	image_info = str(data['ImageInfo'])
-	print("got all the required info")
-	image_json = json.loads(image_info)
-	file = write_to_file(image_name, image_data)
-
-
 #error handlers
 
 @app.errorhandler(413)
@@ -244,5 +234,5 @@ def request_entity_too_large(error):
 # starting the server
 
 if __name__ == '__main__':
-	app.config.update(MAX_CONTENT_LENGTH = 50000000)
-	app.run(host='0.0.0.0', debug = True)
+	# app.config.update(MAX_CONTENT_LENGTH = 50000000)
+	app.run(host='0.0.0.0',port = 8000,  debug = True)

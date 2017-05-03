@@ -171,7 +171,7 @@ public class UserInfoActivity extends Activity {
                 HttpClient httpclient = new DefaultHttpClient();
                 HttpPost httppost = new HttpPost(Constants.NEW_IMAGE_URL);
 //              httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
-// trial
+    // trial
 
                 Part[] parts = {
                         new FilePart("file", thisImage.getFile()),
@@ -182,7 +182,7 @@ public class UserInfoActivity extends Activity {
                 MultipartEntity multipartEntity = new MultipartEntity(parts, httppost.getParams());
                 httppost.setEntity(multipartEntity);
 
-//end of trial
+    //end of trial
                 HttpResponse response = httpclient.execute(httppost);
                 resultString = EntityUtils.toString(response.getEntity());
                 Log.d(TAG, "In the try Loop" + resultString);
