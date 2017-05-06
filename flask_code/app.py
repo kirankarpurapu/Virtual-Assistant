@@ -234,5 +234,5 @@ def request_entity_too_large(error):
 # starting the server
 
 if __name__ == '__main__':
-	# app.config.update(MAX_CONTENT_LENGTH = 50000000)
+	app.config.update(MAX_CONTENT_LENGTH = 50000000)
 	app.run(host='0.0.0.0',port = 8000,  debug = True)
