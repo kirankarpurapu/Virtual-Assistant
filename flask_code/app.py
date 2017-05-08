@@ -185,21 +185,24 @@ def new_image():
       	print("The name of the file is ", image_name)
       	print("new method to save the file worked")
       	data = request.form
-      	if 'base64' not in data or 'ImageName' not in data or 'ImageInfo' not in data:
+      	# if 'base64' not in data or 'ImageName' not in data or 'contactid' not in data:
+      	if 'ImageName' not in data or 'contactid' not in data:	
       		return 'insufficient data sent, please retry'
       	else:		
 			# base64_data = data['base64']
 			# image_data = base64.b64decode(base64_data)
 			# image_name = str(data['ImageName'])
-			image_info = str(data['ImageInfo'])
+			# image_info = str(data['ImageInfo'])
+			image_info = str(data['contactid'])
 			print("got all the required info")
-			image_json = json.loads(image_info)
+			print("the id of the contact is ", image_info)
+			# image_json = json.loads(image_info)
 			# file = write_to_file(image_name, image_data)
 			encodings = get_face_encodings(image_name)
 			if len(encodings) == 1:
 				encodings = encodings[0]
 				print("The encoding for the photo:", encodings)
-				thread.start_new_thread(write_to_database, (image_json, image_name, encodings, ))
+				thread.start_new_thread(write_to_database, (image_info, image_name, encodings, ))
 			elif len(encodings) > 1:
 				print("cannot handle multiple people in the image")
 				return "cannot handle multiple people in the image"	

@@ -1,27 +1,27 @@
 package com.example.kirank.recognito;
 
 import android.app.ProgressDialog;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.Snackbar;
-import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
-
-import com.android.internal.http.multipart.MultipartEntity;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -34,16 +34,17 @@ import org.apache.http.util.EntityUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
 
-    private Button snackbarButton, cameraButton, verifyButton;
+    private static final int NEW_PHOTO_REQUEST = 1;
+    private static final int RETRIEVE_PHOTO_INFO_REQUEST = 2;
+    private static final int INSERT_CONTACT_REQUEST = 3;
+    private Button snackbarButton, cameraButton, verifyButton, newContactButton;
     private Uri outputFileUri;
     private String picturePath, byteString;
+    private ProgressDialog progressDialog;
     private CoordinatorLayout coordinatorLayout;
     private final String TAG = "RECOGNITO";
 
@@ -52,13 +53,22 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         snackbarButton = (Button) findViewById(R.id.snackbar);
+        newContactButton = (Button) findViewById(R.id.newContact);
         cameraButton = (Button) findViewById(R.id.camera);
         verifyButton = (Button) findViewById(R.id.verify);
         coordinatorLayout = (CoordinatorLayout) findViewById(R.id.coordinatorLayout);
+
         cameraButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                clickPic(0);
+                clickPic(NEW_PHOTO_REQUEST);
+            }
+        });
+        newContactButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher);
+                newContactIntent(bitmap, "");
             }
         });
         snackbarButton.setOnClickListener(new View.OnClickListener() {
@@ -80,13 +90,40 @@ public class MainActivity extends AppCompatActivity {
         verifyButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                uploadPicAndGetInfo();
+                Toast.makeText(getApplicationContext(), "trying to retrieve the info from the database", Toast.LENGTH_SHORT).show();
+                openContactCard(18);
+//                uploadPicAndGetInfo();
             }
         });
     }
 
+    private void newContactIntent(Bitmap bitmap, String picturePath) {
+        ArrayList<ContentValues> data = new ArrayList<ContentValues>();
+        byte[] byteArray = bitMapToByteArray(bitmap);
+        ContentValues row = new ContentValues();
+        row.put(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE);
+        row.put(ContactsContract.CommonDataKinds.Photo.PHOTO, byteArray);
+        data.add(row);
+        Intent intent = new Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI);
+
+        Log.d(Constants.MAIN_ACTIVITY_TAG, "trying to open the create contact intent");
+        intent.putParcelableArrayListExtra(ContactsContract.Intents.Insert.DATA, data);
+        if (Integer.valueOf(Build.VERSION.SDK) > 14)
+            intent.putExtra("finishActivityOnSaveCompleted", true);
+        startActivityForResult(intent, INSERT_CONTACT_REQUEST);
+    }
+
+    private byte[] bitMapToByteArray(Bitmap bitmap) {
+
+        ByteArrayOutputStream bao = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bao);
+        byte[] ba = bao.toByteArray();
+        return ba;
+
+    }
+
     public void uploadPicAndGetInfo() {
-        clickPic(1);
+        clickPic(RETRIEVE_PHOTO_INFO_REQUEST);
     }
 
     /**
@@ -103,8 +140,7 @@ public class MainActivity extends AppCompatActivity {
                     .getExternalStorageDirectory(),
                     "testKiran1234.jpg");
             outputFileUri = Uri.fromFile(file);
-//            outputFileUri = FileProvider.getUriForFile(getApplicationContext(), getApplicationContext().getApplicationContext().getPackageName() + ".provider", createImageFile());
-            Log.d("TAG", "outputFileUri intent"
+            Log.d("MAIN_ACTIVITY_TAG", "outputFileUri intent"
                     + outputFileUri);
             intent.putExtra(MediaStore.EXTRA_OUTPUT,
                     outputFileUri);
@@ -117,34 +153,124 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /*
-    Note: request code is 0 when the user is adding a new entry to the system.
-    request code is 1 when the user is trying to match a photo against the database.
-     */
-
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == 0 && resultCode == RESULT_OK) {
-            Intent userInfoIntent = new Intent(MainActivity.this, UserInfoActivity.class);
-            userInfoIntent.putExtra("PICTURE_PATH", outputFileUri.getPath());
-            startActivity(userInfoIntent);
-        }
-        if (requestCode == 1 && resultCode == RESULT_OK) {
-            picturePath = outputFileUri.getPath();
-            Bitmap bm = BitmapFactory.decodeFile(picturePath);
-            Log.d("Original   dimensions", bm.getWidth()+" "+bm.getHeight());
-            ByteArrayOutputStream bao = new ByteArrayOutputStream();
-            bm.compress(Bitmap.CompressFormat.JPEG, 100, bao);
-            Log.d("Compressed dimensions", bm.getWidth()+" "+bm.getHeight());
-            byte[] ba = bao.toByteArray();
-            byteString = Base64.encodeToString(ba, Base64.DEFAULT);
-            final Image image = new Image(byteString, null, null, null);
 
-            //upload the picture to test against other images from the database
-            new UploadToServer().execute(image);
+        if (requestCode == INSERT_CONTACT_REQUEST && resultCode == RESULT_OK) {
+            Log.d(TAG, "after contact intent success");
+            getNewContactInfo(data);
+        }
+        if (requestCode == INSERT_CONTACT_REQUEST && resultCode == RESULT_CANCELED) {
+            Log.d(TAG, "after contact intent failure");
+            Toast.makeText(getApplicationContext(), "failure in adding contact", Toast.LENGTH_LONG).show();
+        }
+
+        if (requestCode == NEW_PHOTO_REQUEST && resultCode == RESULT_OK) {
+
+            Toast.makeText(getApplicationContext(), "success in taking a photo", Toast.LENGTH_LONG).show();
+//            Intent userInfoIntent = new Intent(MainActivity.this, UserInfoActivity.class);
+//            userInfoIntent.putExtra("PICTURE_PATH", outputFileUri.getPath());
+//            startActivity(userInfoIntent);
+            picturePath = outputFileUri.getPath();
+            Log.d(TAG, " path of image: " + picturePath);
+            Bitmap bm = BitmapFactory.decodeFile(picturePath);
+            newContactIntent(bm, picturePath);
+//            uploadImage(picturePath);
+
+        }
+        if (requestCode == NEW_PHOTO_REQUEST && resultCode == RESULT_CANCELED) {
+            Toast.makeText(getApplicationContext(), "failure in taking a photo", Toast.LENGTH_LONG).show();
+        }
+
+        if (requestCode == RETRIEVE_PHOTO_INFO_REQUEST && resultCode == RESULT_OK) {
+            getTestImageInfoFromServer();
+        }
+        if (requestCode == RETRIEVE_PHOTO_INFO_REQUEST && resultCode == RESULT_CANCELED) {
+            Toast.makeText(getApplicationContext(), "failure in retrieving the information of the photo", Toast.LENGTH_LONG).show();
         }
     }
 
-    private class UploadToServer extends AsyncTask<Image, Void, String> {
+    private void uploadImage(String picturePath, int contactId) {
+//        picturePath = outputFileUri.getPath();
+//        Log.d(TAG, " path of image: " + picturePath);
+        Bitmap bm = BitmapFactory.decodeFile(picturePath);
+//        newContactIntent(bm, picturePath);
+        ByteArrayOutputStream bao = new ByteArrayOutputStream();
+        bm.compress(Bitmap.CompressFormat.JPEG, 100, bao);
+        File imageFile = new File(picturePath);
+        byte[] ba = bao.toByteArray();
+        byteString = Base64.encodeToString(ba, Base64.DEFAULT);
+        startProgressDialog();
+        RecognitoImage image = new RecognitoImage(byteString, contactId, imageFile, "KKKKKIIII");
+        UploadToServer.uploadNewImage(MainActivity.this, image, new CallBackInterface() {
+            @Override
+            public void callback(String networkCallResponse) {
+                Toast.makeText(MainActivity.this, "server response " + networkCallResponse, Toast.LENGTH_LONG).show();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        stopProgressDialog();
+                    }
+                });
+            }
+        });
+    }
+
+    private void startProgressDialog() {
+        progressDialog = new ProgressDialog(MainActivity.this);
+        Log.d(Constants.MAIN_ACTIVITY_TAG, "Upload started");
+        progressDialog.setMessage("Wait, image uploading!");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
+
+    }
+
+    private void stopProgressDialog() {
+        Log.d(Constants.MAIN_ACTIVITY_TAG, "Upload finished");
+        progressDialog.hide();
+        progressDialog.dismiss();
+        progressDialog = null;
+    }
+
+
+    private void getTestImageInfoFromServer() {
+        picturePath = outputFileUri.getPath();
+        Bitmap bm = BitmapFactory.decodeFile(picturePath);
+        Log.d("Original   dimensions", bm.getWidth() + " " + bm.getHeight());
+        ByteArrayOutputStream bao = new ByteArrayOutputStream();
+        bm.compress(Bitmap.CompressFormat.JPEG, 100, bao);
+        Log.d("Compressed dimensions", bm.getWidth() + " " + bm.getHeight());
+        byte[] ba = bao.toByteArray();
+        byteString = Base64.encodeToString(ba, Base64.DEFAULT);
+        final Image image = new Image(byteString, null, null, null);
+
+        //upload the picture to test against other images from the database
+        new UploadToServerToTest().execute(image);
+    }
+
+    private void getNewContactInfo(Intent data) {
+        Log.d(TAG, "trying to retrieve the contact of the newly created contact");
+        Toast.makeText(getApplicationContext(), "success in adding a new contact", Toast.LENGTH_LONG).show();
+        Uri contactData = data.getData();
+        Cursor cursor = managedQuery(contactData, null, null, null, null);
+        if (cursor.moveToFirst()) {
+            long newId = cursor.getLong(cursor.getColumnIndexOrThrow(ContactsContract.Contacts._ID));
+            String name = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME));
+            Log.d( Constants.MAIN_ACTIVITY_TAG, "New contact Added ID of newly added contact is : " + newId + " Name is : " + name);
+            Log.d(Constants.MAIN_ACTIVITY_TAG, "New contact Added : Addedd new contact, Need to refress item list : DATA = " + data.toString());
+            uploadImage(picturePath, (int)newId);
+
+        }
+
+    }
+
+    private void openContactCard(int contactID) {
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        Uri uri = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, String.valueOf(contactID));
+        intent.setData(uri);
+        startActivity(intent);
+    }
+
+    private class UploadToServerToTest extends AsyncTask<Image, Void, String> {
 
         public static final String WAIT_TESTING_THE_IMAGE = "Wait, Testing the image!";
         public static final String UPLOAD_STARTED = "Upload started";
@@ -158,12 +284,12 @@ public class MainActivity extends AppCompatActivity {
             progressDialog.setCancelable(false);
             progressDialog.show();
         }
+
         //TODO: fix the return type of the @doInBackground method, it should return a JSON Object instead of a String
         @Override
         protected String doInBackground(Image... image) {
             Image thisImage = image[0];
             String resultString = null;
-//            MultipartEntity multipartEntity = new MultipartEntity();
             ArrayList<NameValuePair> nameValuePairs = new ArrayList<>();
             nameValuePairs.add(new BasicNameValuePair("base64", thisImage.getData()));
             try {
