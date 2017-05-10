@@ -1,6 +1,8 @@
 package com.example.kirank.recognito;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Looper;
 import android.util.Log;
 
@@ -9,6 +11,7 @@ import com.android.internal.http.multipart.MultipartEntity;
 import com.android.internal.http.multipart.Part;
 import com.android.internal.http.multipart.StringPart;
 
+import org.apache.http.Consts;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
@@ -19,6 +22,14 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.SocketTimeoutException;
+import java.net.URL;
 import java.util.ArrayList;
 
 /**
@@ -38,7 +49,7 @@ public class UploadToServer {
             HttpPost httppost = new HttpPost(Constants.NEW_IMAGE_URL);
             Part[] parts = {
                     new FilePart("file", image.getImageFile()),
-                    new StringPart("contactid", ""+image.getId()),
+                    new StringPart("contactid", "" + image.getId()),
                     new StringPart("ImageName", image.getPersonName() + ".jpg")
             };
             MultipartEntity multipartEntity = new MultipartEntity(parts, httppost.getParams());
@@ -74,28 +85,114 @@ public class UploadToServer {
 
     public static void uploadNewImage(final Context context, final RecognitoImage image, final CallBackInterface callBack) {
         Log.d(Constants.SERVER_UPLOAD_TAG, "Trying to upload the image");
-        Thread uploadThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                Looper.prepare();
-                JSONObject resultJson = uploadNewImage(image);
-                callBack.callback(resultJson);
-            }
-        });
-        uploadThread.start();
+        if(!networkAvailable(context)) {
+            callBack.callback(null);
+        }
+        else {
+            Thread uploadThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Looper.prepare();
+                    JSONObject resultJson = uploadNewImage(image);
+                    callBack.callback(resultJson);
+                }
+            });
+            uploadThread.start();
+        }
     }
 
     public static void uploadToTestImage(final Context context, final String base64String, final CallBackInterface callBack) {
         Log.d(Constants.SERVER_UPLOAD_TAG, "Trying to upload to test the image");
-        Thread uploadThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                Looper.prepare();
-                JSONObject resultJson = uploadToTestImage(base64String);
-                callBack.callback(resultJson);
-            }
-        });
-        uploadThread.start();
+        networkAvailable(context);
+        if(!networkAvailable(context)) {
+            callBack.callback(null);
+        }
+        else {
+            Thread uploadThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Looper.prepare();
+                    JSONObject resultJson = uploadToTestImage(base64String);
+                    callBack.callback(resultJson);
+                }
+            });
+            uploadThread.start();
+        }
     }
 
+    public static boolean networkAvailable(Context context) {
+        boolean isPhoneOnline = isOnline(context);
+        Log.d(Constants.SERVER_UPLOAD_TAG, "Status of phone " + isPhoneOnline);
+//        boolean isServerOnline = isServerAvailable();
+        boolean isServerOnline = isServerReachable(context);
+        Log.d(Constants.SERVER_UPLOAD_TAG, "Status of server " + isServerOnline);
+//        return isPhoneOnline && isServerOnline;
+        return isPhoneOnline;
+    }
+
+    public static boolean isOnline(Context context) {
+        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo netInfo = cm.getActiveNetworkInfo();
+        return netInfo != null && netInfo.isConnectedOrConnecting();
+    }
+
+
+    static public boolean isServerReachable(Context context) {
+        ConnectivityManager connMan = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo netInfo = connMan.getActiveNetworkInfo();
+        final boolean[] status = {false};
+        if (netInfo != null && netInfo.isConnected()) {
+            try {
+                URL urlServer = new URL(Constants.PING_URL);
+                final HttpURLConnection urlConn = (HttpURLConnection) urlServer.openConnection();
+                urlConn.setConnectTimeout(3000); //<- 3Seconds Timeout
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            urlConn.connect();
+                            if (urlConn.getResponseCode() == 200) {
+                                status[0] = true;
+                            }
+                        }catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                    }
+                }).start();
+
+            } catch (MalformedURLException e1) {
+                return false;
+            } catch (IOException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+
+    public static boolean isServerAvailable() {
+        boolean exists = false;
+        try {
+            SocketAddress sockaddr = new InetSocketAddress(Constants.PING_URL, 8000);
+            // Create an unbound socket
+            Socket sock = new Socket();
+
+            // This method will block no more than timeoutMs.
+            // If the timeout occurs, SocketTimeoutException is thrown.
+            int timeoutMs = 3000;
+            sock.connect(sockaddr, timeoutMs);
+            exists = true;
+            sock.close();
+        } catch (SocketTimeoutException e) {
+            exists = false;
+            Log.d(Constants.SERVER_UPLOAD_TAG, "The server is not available");
+        }
+        catch (IOException e) {
+            exists = false;
+            Log.d(Constants.SERVER_UPLOAD_TAG, "The server is not available");
+        }
+        finally {
+            return exists;
+        }
+    }
 }

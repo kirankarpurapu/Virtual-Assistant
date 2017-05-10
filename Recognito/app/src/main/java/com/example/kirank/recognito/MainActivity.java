@@ -13,7 +13,6 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
-import android.provider.Settings;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -43,20 +42,19 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         cameraButton = (Button) findViewById(R.id.camera);
         verifyButton = (Button) findViewById(R.id.verify);
         coordinatorLayout = (CoordinatorLayout) findViewById(R.id.coordinatorLayout);
-
         cameraButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 clickPic(NEW_PHOTO_REQUEST);
             }
         });
-
         verifyButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -66,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void newContactIntent(Bitmap bitmap, String picturePath) {
+
         ArrayList<ContentValues> data = new ArrayList<ContentValues>();
         byte[] byteArray = bitMapToByteArray(bitmap);
         ContentValues row = new ContentValues();
@@ -73,7 +72,6 @@ public class MainActivity extends AppCompatActivity {
         row.put(ContactsContract.CommonDataKinds.Photo.PHOTO, byteArray);
         data.add(row);
         Intent intent = new Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI);
-
         Log.d(Constants.MAIN_ACTIVITY_TAG, "trying to open the create contact intent");
         intent.putParcelableArrayListExtra(ContactsContract.Intents.Insert.DATA, data);
         if (Integer.valueOf(Build.VERSION.SDK) > 14)
@@ -98,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
      * @param requestCode
      */
     public void clickPic(int requestCode) {
+
         // Check Camera
         if (getApplicationContext().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_CAMERA)) {
@@ -138,34 +137,19 @@ public class MainActivity extends AppCompatActivity {
 
         }
         if (requestCode == NEW_PHOTO_REQUEST && resultCode == RESULT_CANCELED) {
-            Snackbar snackbar = Snackbar
-                    .make(coordinatorLayout, "failure in taking a photo", Snackbar.LENGTH_LONG).
-                            setAction("Retry", new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    clickPic(NEW_PHOTO_REQUEST);
-                                }
-                            });
-            snackbar.show();
+            showSnackBar("failure in taking a photo", NEW_PHOTO_REQUEST);
         }
 
         if (requestCode == RETRIEVE_PHOTO_INFO_REQUEST && resultCode == RESULT_OK) {
             getTestImageInfoFromServer();
         }
         if (requestCode == RETRIEVE_PHOTO_INFO_REQUEST && resultCode == RESULT_CANCELED) {
-            Snackbar snackbar = Snackbar
-                    .make(coordinatorLayout, "failure in taking a photo", Snackbar.LENGTH_LONG).
-                            setAction("Retry", new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    clickPic(RETRIEVE_PHOTO_INFO_REQUEST);
-                                }
-                            });
-            snackbar.show();
+            showSnackBar("failure in taking a photo", RETRIEVE_PHOTO_INFO_REQUEST);
         }
     }
 
     private void uploadImage(String picturePath, int contactId) {
+
         Bitmap bm = BitmapFactory.decodeFile(picturePath);
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
         bm.compress(Bitmap.CompressFormat.JPEG, 100, bao);
@@ -177,11 +161,11 @@ public class MainActivity extends AppCompatActivity {
         UploadToServer.uploadNewImage(MainActivity.this, image, new CallBackInterface() {
             @Override
             public void callback(final JSONObject networkCallResponse) {
-                if(networkCallResponse != null) {
+                if (networkCallResponse != null) {
                     Log.d(TAG, "upload new image result " + networkCallResponse.toString());
                     try {
                         int status = networkCallResponse.getInt("result_status");
-                        if(status != 1) {
+                        if (status != 1) {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
@@ -210,8 +194,7 @@ public class MainActivity extends AppCompatActivity {
                             stopProgressDialog();
                         }
                     });
-                }
-                else {
+                } else {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -224,11 +207,29 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showSnackBar(String message) {
+
         Snackbar snackbar = Snackbar
                 .make(coordinatorLayout, " " + message, Snackbar.LENGTH_LONG);
         snackbar.show();
     }
+
+
+    private void showSnackBar(String message, final int retryCode) {
+
+        Snackbar snackbar = Snackbar
+                .make(coordinatorLayout, message, Snackbar.LENGTH_LONG)
+                .setAction("Retry", new View.OnClickListener() {
+
+                    @Override
+                    public void onClick(View view) {
+                        clickPic(retryCode);
+                    }
+                });
+        snackbar.show();
+    }
+
     private void startProgressDialog(String message) {
+
         progressDialog = new ProgressDialog(MainActivity.this);
         Log.d(Constants.MAIN_ACTIVITY_TAG, "Upload started");
         progressDialog.setMessage(message);
@@ -238,22 +239,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopProgressDialog() {
+
         Log.d(Constants.MAIN_ACTIVITY_TAG, "Upload finished");
-        progressDialog.hide();
-        progressDialog.dismiss();
+        if(progressDialog != null) {
+            progressDialog.hide();
+            progressDialog.dismiss();
+        }
         progressDialog = null;
     }
 
 
     private void getTestImageInfoFromServer() {
+
         picturePath = outputFileUri.getPath();
-        Bitmap bm = BitmapFactory.decodeFile(picturePath);
-        Log.d(TAG, "Original   dimensions" + bm.getWidth() + " " + bm.getHeight());
+        Bitmap bitmap = BitmapFactory.decodeFile(picturePath);
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
-        bm.compress(Bitmap.CompressFormat.JPEG, 100, bao);
-        Log.d(TAG, "Compressed dimensions" + bm.getWidth() + " " + bm.getHeight());
-        byte[] ba = bao.toByteArray();
-        byteString = Base64.encodeToString(ba, Base64.DEFAULT);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bao);
+        byte[] byteArray = bao.toByteArray();
+        byteString = Base64.encodeToString(byteArray, Base64.DEFAULT);
 
         //upload the picture to test against other images from the database
         startProgressDialog("Hold Tight!, trying to find a match");
@@ -261,50 +264,36 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void callback(JSONObject networkCallResponse) {
+
+                if (networkCallResponse != null) {
+                    Log.d(TAG, "testing image with database" + networkCallResponse.toString());
+                    try {
+                        int contactId = networkCallResponse.getInt("contact_id");
+                        Log.d(TAG, "contact ID from the server " + contactId);
+                        if (contactId != -1) {
+                            openContactCard(contactId);
+                        } else {
+                            showSnackBar("No matching user found", RETRIEVE_PHOTO_INFO_REQUEST);
+                        }
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    showSnackBar("No matching user found Or a server issue occured", RETRIEVE_PHOTO_INFO_REQUEST);
+                    Log.d(TAG, "No result while testing image");
+                }
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         stopProgressDialog();
                     }
                 });
-                if (networkCallResponse != null) {
-                    Log.d(TAG, "testing image with database" + networkCallResponse.toString());
-                    try {
-                        int contactId = networkCallResponse.getInt("contact_id");
-                        if (contactId != -1) {
-                            openContactCard(contactId);
-                        } else {
-                            Snackbar snackbar = Snackbar
-                                    .make(coordinatorLayout, "No matching user found", Snackbar.LENGTH_LONG)
-                                    .setAction("Retry", new View.OnClickListener() {
-
-                                        @Override
-                                        public void onClick(View view) {
-                                            clickPic(RETRIEVE_PHOTO_INFO_REQUEST);
-                                        }
-                                    });
-                            snackbar.show();
-                        }
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
-                } else {
-                    Snackbar snackbar = Snackbar
-                            .make(coordinatorLayout, "No matching user found", Snackbar.LENGTH_LONG).
-                                    setAction("Retry", new View.OnClickListener() {
-                                        @Override
-                                        public void onClick(View v) {
-                                            clickPic(RETRIEVE_PHOTO_INFO_REQUEST);
-                                        }
-                                    });
-                    snackbar.show();
-                    Log.d(TAG, "No result while testing image");
-                }
             }
         });
     }
 
     private void getNewContactInfo(Intent data) {
+
         Log.d(TAG, "trying to retrieve the contact of the newly created contact");
         Uri contactData = data.getData();
         Cursor cursor = managedQuery(contactData, null, null, null, null);
@@ -318,6 +307,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openContactCard(int contactID) {
+
         Intent intent = new Intent(Intent.ACTION_VIEW);
         Uri uri = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, String.valueOf(contactID));
         intent.setData(uri);
