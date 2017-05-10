@@ -6,7 +6,7 @@ package com.example.kirank.recognito;
 
 public class Constants {
 
-    public static final String BASE_URL = "https://wptuoyufqp.localtunnel.me";
+    public static final String BASE_URL = "https://ujxldkiswl.localtunnel.me";
 //    public static final String BASE_URL = "http://192.168.1.164:8000";
 //    public static final String BASE_URL = "http://98.116.40.213:8000";
     public static final String PING_URL = BASE_URL;
