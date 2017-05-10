@@ -34,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int RETRIEVE_PHOTO_INFO_REQUEST = 2;
     private static final int INSERT_CONTACT_REQUEST = 3;
     private Button cameraButton, verifyButton;
-    private Uri outputFileUri;
+    private Uri outputFileUri = null;
     private String picturePath, byteString;
     private ProgressDialog progressDialog;
     private CoordinatorLayout coordinatorLayout;
@@ -122,7 +122,13 @@ public class MainActivity extends AppCompatActivity {
 
         if (requestCode == INSERT_CONTACT_REQUEST && resultCode == RESULT_OK) {
             Log.d(TAG, "after contact intent success");
-            getNewContactInfo(data);
+            if(data != null) {
+                getNewContactInfo(data);
+            }
+            else {
+                Log.d(TAG, "after contact intent success but no data");
+                showSnackBar("failure in creating a new contact");
+            }
         }
         if (requestCode == INSERT_CONTACT_REQUEST && resultCode == RESULT_CANCELED) {
             Log.d(TAG, "after contact intent failure");
@@ -130,10 +136,16 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (requestCode == NEW_PHOTO_REQUEST && resultCode == RESULT_OK) {
-            picturePath = outputFileUri.getPath();
-            Log.d(TAG, " path of image: " + picturePath);
-            Bitmap bm = BitmapFactory.decodeFile(picturePath);
-            newContactIntent(bm, picturePath);
+            if(outputFileUri != null) {
+                picturePath = outputFileUri.getPath();
+                Log.d(TAG, " path of image: " + picturePath);
+                Bitmap bm = BitmapFactory.decodeFile(picturePath);
+                newContactIntent(bm, picturePath);
+            }
+            else {
+                Log.d(TAG, "The output file URI is null");
+                showSnackBar("failure in taking a photo", NEW_PHOTO_REQUEST);
+            }
 
         }
         if (requestCode == NEW_PHOTO_REQUEST && resultCode == RESULT_CANCELED) {
@@ -148,7 +160,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void uploadImage(String picturePath, int contactId) {
+    private void uploadImage(String picturePath, int contactId, String name) {
 
         Bitmap bm = BitmapFactory.decodeFile(picturePath);
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
@@ -157,10 +169,10 @@ public class MainActivity extends AppCompatActivity {
         byte[] ba = bao.toByteArray();
         byteString = Base64.encodeToString(ba, Base64.DEFAULT);
         startProgressDialog("Hold on Tight!, uploading image");
-        RecognitoImage image = new RecognitoImage(byteString, contactId, imageFile, "Person_NAME");
+        RecognitoImage image = new RecognitoImage(byteString, contactId, imageFile, name);
         UploadToServer.uploadNewImage(MainActivity.this, image, new CallBackInterface() {
             @Override
-            public void callback(final JSONObject networkCallResponse) {
+            public void onSuccess(final JSONObject networkCallResponse) {
                 if (networkCallResponse != null) {
                     Log.d(TAG, "upload new image result " + networkCallResponse.toString());
                     try {
@@ -203,6 +215,18 @@ public class MainActivity extends AppCompatActivity {
                     });
                 }
             }
+
+            @Override
+            public void onFailure(JSONObject networkCallFailure) {
+                if (networkCallFailure == null) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            showSnackBar(Constants.SERVER_CONNECTIVITY_ISSUE);
+                        }
+                    });
+                }
+            }
         });
     }
 
@@ -241,7 +265,7 @@ public class MainActivity extends AppCompatActivity {
     private void stopProgressDialog() {
 
         Log.d(Constants.MAIN_ACTIVITY_TAG, "Upload finished");
-        if(progressDialog != null) {
+        if (progressDialog != null) {
             progressDialog.hide();
             progressDialog.dismiss();
         }
@@ -263,7 +287,7 @@ public class MainActivity extends AppCompatActivity {
         UploadToServer.uploadToTestImage(MainActivity.this, byteString, new CallBackInterface() {
 
             @Override
-            public void callback(JSONObject networkCallResponse) {
+            public void onSuccess(JSONObject networkCallResponse) {
 
                 if (networkCallResponse != null) {
                     Log.d(TAG, "testing image with database" + networkCallResponse.toString());
@@ -273,7 +297,8 @@ public class MainActivity extends AppCompatActivity {
                         if (contactId != -1) {
                             openContactCard(contactId);
                         } else {
-                            showSnackBar("No matching user found", RETRIEVE_PHOTO_INFO_REQUEST);
+                            String message = networkCallResponse.getString("message");
+                            showSnackBar("Server says: " + message, RETRIEVE_PHOTO_INFO_REQUEST);
                         }
                     } catch (JSONException e) {
                         e.printStackTrace();
@@ -289,6 +314,18 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             }
+
+            @Override
+            public void onFailure(JSONObject networkCallResponseFailure) {
+                if (networkCallResponseFailure == null) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            showSnackBar(Constants.SERVER_CONNECTIVITY_ISSUE);
+                        }
+                    });
+                }
+            }
         });
     }
 
@@ -302,7 +339,7 @@ public class MainActivity extends AppCompatActivity {
             String name = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME));
             Log.d(Constants.MAIN_ACTIVITY_TAG, "New contact Added ID of newly added contact is : " + newId + " Name is : " + name);
             Log.d(Constants.MAIN_ACTIVITY_TAG, "New contact Added : Addedd new contact, Need to refress item list : DATA = " + data.toString());
-            uploadImage(picturePath, (int) newId);
+            uploadImage(picturePath, (int) newId, name);
         }
     }
 

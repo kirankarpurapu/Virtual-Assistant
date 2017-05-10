@@ -11,7 +11,6 @@ import com.android.internal.http.multipart.MultipartEntity;
 import com.android.internal.http.multipart.Part;
 import com.android.internal.http.multipart.StringPart;
 
-import org.apache.http.Consts;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
@@ -41,7 +40,12 @@ public class UploadToServer {
     private UploadToServer() {
     }
 
-    public static JSONObject uploadNewImage(RecognitoImage image) {
+    /**
+     *
+     * @param image
+     * @return JsonObject result object after uploading a new image to add to the database
+     */
+    private static JSONObject uploadNewImage(RecognitoImage image) {
         String resultString = null;
         JSONObject jsonResult = null;
         try {
@@ -50,7 +54,8 @@ public class UploadToServer {
             Part[] parts = {
                     new FilePart("file", image.getImageFile()),
                     new StringPart("contactid", "" + image.getId()),
-                    new StringPart("ImageName", image.getPersonName() + ".jpg")
+                    new StringPart("imagename", image.getPersonName() + System.currentTimeMillis()+ ".jpg"),
+
             };
             MultipartEntity multipartEntity = new MultipartEntity(parts, httppost.getParams());
             httppost.setEntity(multipartEntity);
@@ -59,12 +64,17 @@ public class UploadToServer {
             jsonResult = new JSONObject(resultString);
             Log.d(Constants.SERVER_UPLOAD_TAG, "In the try Loop" + resultString);
         } catch (Exception e) {
-            Log.d(Constants.SERVER_UPLOAD_TAG, "Error in http connection " + e.toString());
+            Log.d(Constants.SERVER_UPLOAD_TAG, "Error in http connection while adding new image" + e.toString());
         }
         return jsonResult;
     }
 
-    public static JSONObject uploadToTestImage(String base64String) {
+    /**
+     *
+     * @param base64String
+     * @return JSONObject result after uploading the image to test for a match
+     */
+    private static JSONObject uploadToTestImage(String base64String) {
         String resultString = null;
         JSONObject resultJson = null;
         ArrayList<NameValuePair> nameValuePairs = new ArrayList<>();
@@ -78,15 +88,23 @@ public class UploadToServer {
             resultJson = new JSONObject(resultString);
             Log.d(Constants.SERVER_UPLOAD_TAG, "In the try Loop" + resultString);
         } catch (Exception e) {
-            Log.d(Constants.SERVER_UPLOAD_TAG, "Error in http connection " + e.toString());
+            Log.d(Constants.SERVER_UPLOAD_TAG, "Error in http connection while testing image" + e.toString());
         }
         return resultJson;
     }
 
+    /**
+     *
+     * @param context
+     * @param image
+     * @param callBack
+     */
     public static void uploadNewImage(final Context context, final RecognitoImage image, final CallBackInterface callBack) {
         Log.d(Constants.SERVER_UPLOAD_TAG, "Trying to upload the image");
         if(!networkAvailable(context)) {
-            callBack.callback(null);
+            callBack.onFailure(null);
+//            callBack.onSuccess(null);
+
         }
         else {
             Thread uploadThread = new Thread(new Runnable() {
@@ -94,18 +112,25 @@ public class UploadToServer {
                 public void run() {
                     Looper.prepare();
                     JSONObject resultJson = uploadNewImage(image);
-                    callBack.callback(resultJson);
+                    callBack.onSuccess(resultJson);
                 }
             });
             uploadThread.start();
         }
     }
 
+    /**
+     *
+     * @param context
+     * @param base64String
+     * @param callBack
+     */
     public static void uploadToTestImage(final Context context, final String base64String, final CallBackInterface callBack) {
         Log.d(Constants.SERVER_UPLOAD_TAG, "Trying to upload to test the image");
         networkAvailable(context);
         if(!networkAvailable(context)) {
-            callBack.callback(null);
+            callBack.onFailure(null);
+//            callBack.onSuccess(null);
         }
         else {
             Thread uploadThread = new Thread(new Runnable() {
@@ -113,31 +138,46 @@ public class UploadToServer {
                 public void run() {
                     Looper.prepare();
                     JSONObject resultJson = uploadToTestImage(base64String);
-                    callBack.callback(resultJson);
+                    callBack.onSuccess(resultJson);
                 }
             });
             uploadThread.start();
         }
     }
 
-    public static boolean networkAvailable(Context context) {
+    /**
+     *
+     * @param context
+     * @return if the network is available ot not
+     */
+    private static boolean networkAvailable(Context context) {
         boolean isPhoneOnline = isOnline(context);
         Log.d(Constants.SERVER_UPLOAD_TAG, "Status of phone " + isPhoneOnline);
 //        boolean isServerOnline = isServerAvailable();
-        boolean isServerOnline = isServerReachable(context);
-        Log.d(Constants.SERVER_UPLOAD_TAG, "Status of server " + isServerOnline);
+//        boolean isServerOnline = isServerReachable(context);
+//        Log.d(Constants.SERVER_UPLOAD_TAG, "Status of server " + isServerOnline);
 //        return isPhoneOnline && isServerOnline;
         return isPhoneOnline;
     }
 
-    public static boolean isOnline(Context context) {
+    /**
+     *
+     * @param context
+     * @return boolean if the phone is connected to the internet or not
+     */
+    private static boolean isOnline(Context context) {
         ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo netInfo = cm.getActiveNetworkInfo();
         return netInfo != null && netInfo.isConnectedOrConnecting();
     }
 
 
-    static public boolean isServerReachable(Context context) {
+    /**
+     *
+     * @param context
+     * @return boolean if the server is reachable or not
+     */
+    private static boolean isServerReachable(Context context) {
         ConnectivityManager connMan = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo netInfo = connMan.getActiveNetworkInfo();
         final boolean[] status = {false};
@@ -169,8 +209,12 @@ public class UploadToServer {
         return false;
     }
 
+    /**
+     *
+     * @return boolean if the server is reachable or not
+     */
 
-    public static boolean isServerAvailable() {
+    private static boolean isServerAvailable() {
         boolean exists = false;
         try {
             SocketAddress sockaddr = new InetSocketAddress(Constants.PING_URL, 8000);

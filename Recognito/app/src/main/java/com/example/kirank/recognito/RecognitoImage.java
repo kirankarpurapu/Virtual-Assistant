@@ -8,6 +8,7 @@ import java.io.File;
  * Created by kirank on 5/7/17.
  */
 
+
 public class RecognitoImage {
 
     private final String data;

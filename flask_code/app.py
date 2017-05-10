@@ -30,17 +30,20 @@ table = connection_dynamodb.get_table(table_name)
 
 
 #photo recognition params
-TOLERANCE = 0.6
+TOLERANCE = 0.4
 
 
 # helper functions
 
 def compare_face_encodings(known_faces, face):
     values = np.linalg.norm(known_faces - face, axis=1)
+    print("The {0} comparision value(s) are ").format(len(values))
+    print(values)
+    print("The tolerance is {0}").format(TOLERANCE)
     matches = (values <= TOLERANCE)
     return matches
 
-def write_to_dynamodb(user_id, photo_id, contact_id, url, encodings):
+def write_to_dynamodb(user_id, photo_id, contact_id, image_name, url, encodings):
 	print("****************************")
 	print("user id", user_id)
 	print("photo id", photo_id)
@@ -53,6 +56,7 @@ def write_to_dynamodb(user_id, photo_id, contact_id, url, encodings):
 		'S3_URL' : url,
 		'encodings' : encoding_string,
 		'contactid' : contact_id,
+		'imagename' : image_name
 		}
 	item_row = table.new_item(hash_key = str(user_id), range_key = str(photo_id), attrs = item)
 	dynamodb_response = item_row.put()
@@ -94,16 +98,16 @@ def get_face_encodings(path_to_image):
 	shapes_faces = [shape_predictor(image, face) for face in detected_faces]
 	return [np.array(face_recognition_model.compute_face_descriptor(image, face_pose, 1)) for face_pose in shapes_faces]	
 
-def write_to_database(image_info, image, encodings):
+def write_to_database(image_info, image_name, encodings):
 	print("*********************************")
 	print("trying to upload to S3")
-	url = upload_to_s3(image)
+	url = upload_to_s3(image_name)
 	print("The S3 url is ", url)
 	print("*********************************")
 	user_id = 123
 	u_id = uuid.uuid4()
 	# need to write to the dynamo db
-	dynamodb_response = write_to_dynamodb(user_id, u_id, image_info, url, encodings)
+	dynamodb_response = write_to_dynamodb(user_id, u_id, image_info, image_name, url, encodings)
 	return dynamodb_response
 
 def get_matching_photo_details(image):
@@ -114,13 +118,16 @@ def get_matching_photo_details(image):
 	info_array = []
 	for item in images:
 		contact_id = item['contactid']
+		person_name = item['imagename']
+		encodings = item['encodings']
 		user_dict = {}
 		user_dict['contactid'] = contact_id
+		user_dict['name'] = person_name
+		user_dict['encodings'] = encodings
 		info_array.append(user_dict)
-
-		encodings = item['encodings']
 		encodings_values_as_array = np.array([float(x) for x in str(encodings).split(',')])
 		encodings_array.append(encodings_values_as_array)
+
 	
 	print("found {0} images in the database").format(len(encodings_array))
 	# get the encodings of this photo
@@ -131,20 +138,29 @@ def get_matching_photo_details(image):
 		return_dict['contact_id'] = -1
 		json_return_value = json.dumps(return_dict)
 		return json_return_value
+	if(len(test_encodings) > 1):
+		return_dict = {}
+		return_dict['message'] = 'cannot handle multiple people'
+		return_dict['contact_id'] = -1
+		json_return_value = json.dumps(return_dict)
+		return json_return_value	
 	else:
 		matches = compare_face_encodings(encodings_array, test_encodings)
 		print("matches ", matches)
+		print("names")
+		for person in info_array:
+			print("person: " ,person['name'])
 		return process_matches(matches, info_array)
 
 def process_matches(matches, info_array):	
 	match_found = False
 	counter = 0
 	for match in matches:
-		counter = counter + 1
 		if match:
 			match_found = True
 			print("found a match")
 			break
+		counter = counter + 1	
 	if not match_found:
 		print("no user at all")
 		return_dict = {}
@@ -155,11 +171,18 @@ def process_matches(matches, info_array):
 	else:
 		if counter < len(info_array):
 			print(info_array[counter])
-		return_dict = {}
-		return_dict['message'] = 'found a match'
-		return_dict['contact_id'] = info_array[counter]['contactid']
-		json_return_value = json.dumps(return_dict)
-		return json_return_value
+			return_dict = {}
+			return_dict['message'] = 'found a match'
+			return_dict['contact_id'] = info_array[counter]['contactid']
+			json_return_value = json.dumps(return_dict)
+			return json_return_value
+		else:
+			return_dict = {}
+			return_dict['message'] = 'something fishy!'
+			return_dict['contact_id'] = -1
+			json_return_value = json.dumps(return_dict)
+			return json_return_value
+				
 
 # routes
 
@@ -189,12 +212,17 @@ def new_image():
 			result_json_dict['result_status'] = -1
 			json_result = json.dumps(result_json_dict)
 			return json_result
-		image_name = secure_filename(f.filename)
+		# image_name = secure_filename(f.filename)
+		if 'imagename' not in request.form:
+			print ("image name not found")	
+		else:
+			print("The name of the image is ", request.form['imagename'])	
+		image_name = request.form['imagename']
       	f.save(image_name)
       	print("The name of the file is ", image_name)
       	print("new method to save the file worked")
       	data = request.form
-      	if 'ImageName' not in data or 'contactid' not in data:	
+      	if 'contactid' not in data:	
       		result_json_dict['message'] = 'insufficient data sent, please retry'
       		result_json_dict['result_status'] = -1
       		json_result = json.dumps(result_json_dict)

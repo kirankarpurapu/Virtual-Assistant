@@ -8,7 +8,9 @@ import org.json.JSONObject;
 
 public interface CallBackInterface {
 
-    public void callback(JSONObject networkCallResponse);
+    public void onSuccess(JSONObject networkCallResponseSuccess);
+
+    public void onFailure(JSONObject networkCallResponseFailure);
 }
 
 
