@@ -15,7 +15,7 @@ from boto.s3.key import Key
 from werkzeug import secure_filename
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # for 16MB max-limit.
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # for 20MB max-limit.
 
 # aws connections
 # connection_s3 = boto.connect_s3(profile_name = "Recognito-account")
@@ -284,5 +284,5 @@ def request_entity_too_large(error):
 # starting the server
 
 if __name__ == '__main__':
-	app.config.update(MAX_CONTENT_LENGTH = 50000000)
+	# app.config.update(MAX_CONTENT_LENGTH = 50000000)
 	app.run(host='0.0.0.0',port = 8000,  debug = True)

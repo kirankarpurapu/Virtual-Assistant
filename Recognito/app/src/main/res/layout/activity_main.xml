@@ -10,25 +10,40 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:weightSum="2">
 
         <Button
             android:id="@+id/camera"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             android:layout_gravity="center"
-            android:layout_marginTop="50dp"
-            android:text="New Entry" />
+            android:text="New Entry"
+            android:textSize="30dp"
+            android:layout_margin="20dp"
+            android:textColor="#ffffff"
+            android:background="#57ae8a"
+            android:padding="20dp"/>
 
 
 
         <Button
             android:id="@+id/verify"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginLeft="20dp"
+            android:layout_marginRight="20dp"
+            android:layout_marginBottom="20dp"
+
+            android:textSize="30dp"
+            android:textColor="#ffffff"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             android:layout_gravity="center"
-            android:layout_marginTop="50dp"
-            android:text="Verify Entry" />
+
+            android:text="Verify Entry"
+            android:background="#57ae8a"
+            android:padding="20dp"/>
 
     </LinearLayout>
 

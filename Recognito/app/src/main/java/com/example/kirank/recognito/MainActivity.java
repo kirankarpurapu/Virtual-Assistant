@@ -1,5 +1,6 @@
 package com.example.kirank.recognito;
 
+import android.Manifest;
 import android.app.ProgressDialog;
 import android.content.ContentValues;
 import android.content.Intent;
@@ -15,6 +16,8 @@ import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Base64;
 import android.util.Log;
@@ -30,7 +33,9 @@ import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
 
+
     private static final int NEW_PHOTO_REQUEST = 1;
+    private static final int PERMISSIONS_REQUEST_READ_CALENDER = 1;
     private static final int RETRIEVE_PHOTO_INFO_REQUEST = 2;
     private static final int INSERT_CONTACT_REQUEST = 3;
     private Button cameraButton, verifyButton;
@@ -61,6 +66,62 @@ public class MainActivity extends AppCompatActivity {
                 uploadPicAndGetInfo();
             }
         });
+
+//        int internetPermissionCheck = ContextCompat.checkSelfPermission(MainActivity.this,
+//                Manifest.permission.INTERNET);
+//        int writeExternalStoragePermissionCheck = ContextCompat.checkSelfPermission(MainActivity.this,
+//                Manifest.permission.WRITE_EXTERNAL_STORAGE);
+//        int readContactsPermissionCheck = ContextCompat.checkSelfPermission(MainActivity.this,
+//                Manifest.permission.READ_CONTACTS);
+//        int writeContactsPermissionCheck = ContextCompat.checkSelfPermission(MainActivity.this,
+//                Manifest.permission.WRITE_CONTACTS);
+//        int accessNetworkPermissionCheck = ContextCompat.checkSelfPermission(MainActivity.this,
+//                Manifest.permission.ACCESS_NETWORK_STATE);
+//
+//        boolean internetPermission, writeExternalStoragePermission, readContactPermission, writeContactPermission, accessNetworkPermission;
+//        internetPermission = (internetPermissionCheck == PackageManager.PERMISSION_GRANTED) ? true : false;
+//        writeContactPermission = (writeExternalStoragePermissionCheck == PackageManager.PERMISSION_GRANTED) ? true : false;
+//        readContactPermission = (readContactsPermissionCheck == PackageManager.PERMISSION_GRANTED) ? true : false;
+//        writeExternalStoragePermission = (writeExternalStoragePermissionCheck == PackageManager.PERMISSION_GRANTED) ? true : false;
+//        accessNetworkPermission = (accessNetworkPermissionCheck == PackageManager.PERMISSION_GRANTED) ? true : false;
+//
+//        Log.d(TAG, internetPermission + ", " + writeContactPermission + ", " + readContactPermission + ", " + writeContactPermission
+//                + ", " + accessNetworkPermission);
+//
+//        boolean permission = internetPermission && writeContactPermission && readContactPermission && writeExternalStoragePermission && accessNetworkPermission;
+//        Log.d(TAG, "permission " + permission);
+//        if(!(permission)) {
+//            showSnackBar("please give permission to access all the requested hardware");
+//            Log.d(TAG, "Please grant permission to access the required hardware");
+//            finish();
+//        }
+//        else {
+//            showSnackBar("Happy, all the permissions are granted");
+//        }
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.WRITE_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "requesting permissions");
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS, Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE},
+                    PERMISSIONS_REQUEST_READ_CALENDER);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case PERMISSIONS_REQUEST_READ_CALENDER: {
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "all permissions granted");
+                }
+                else {
+                    Log.d(TAG, "all permissions not granted");
+                }
+                return;
+            }
+        }
     }
 
     private void newContactIntent(Bitmap bitmap, String picturePath) {
@@ -69,7 +130,7 @@ public class MainActivity extends AppCompatActivity {
         byte[] byteArray = bitMapToByteArray(bitmap);
         ContentValues row = new ContentValues();
         row.put(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE);
-        row.put(ContactsContract.CommonDataKinds.Photo.PHOTO, byteArray);
+//        row.put(ContactsContract.CommonDataKinds.Photo.PHOTO, byteArray);
         data.add(row);
         Intent intent = new Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI);
         Log.d(Constants.MAIN_ACTIVITY_TAG, "trying to open the create contact intent");
@@ -85,7 +146,6 @@ public class MainActivity extends AppCompatActivity {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bao);
         byte[] ba = bao.toByteArray();
         return ba;
-
     }
 
     public void uploadPicAndGetInfo() {
@@ -107,7 +167,8 @@ public class MainActivity extends AppCompatActivity {
                     .getExternalStorageDirectory(),
                     "Recognito" + System.currentTimeMillis() + ".jpg");
             outputFileUri = Uri.fromFile(file);
-            Log.d("MAIN_ACTIVITY_TAG", "outputFileUri intent"
+
+            Log.d("MAIN_ACTIVITY_TAG", " 1 . outputFileUri intent"
                     + outputFileUri);
             intent.putExtra(MediaStore.EXTRA_OUTPUT,
                     outputFileUri);
@@ -122,10 +183,9 @@ public class MainActivity extends AppCompatActivity {
 
         if (requestCode == INSERT_CONTACT_REQUEST && resultCode == RESULT_OK) {
             Log.d(TAG, "after contact intent success");
-            if(data != null) {
+            if (data != null) {
                 getNewContactInfo(data);
-            }
-            else {
+            } else {
                 Log.d(TAG, "after contact intent success but no data");
                 showSnackBar("failure in creating a new contact");
             }
@@ -136,13 +196,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (requestCode == NEW_PHOTO_REQUEST && resultCode == RESULT_OK) {
-            if(outputFileUri != null) {
+            Log.d("MAIN_ACTIVITY_TAG", "2. output file URI " + outputFileUri);
+            if (outputFileUri != null) {
                 picturePath = outputFileUri.getPath();
                 Log.d(TAG, " path of image: " + picturePath);
                 Bitmap bm = BitmapFactory.decodeFile(picturePath);
                 newContactIntent(bm, picturePath);
-            }
-            else {
+            } else {
                 Log.d(TAG, "The output file URI is null");
                 showSnackBar("failure in taking a photo", NEW_PHOTO_REQUEST);
             }
@@ -272,7 +332,6 @@ public class MainActivity extends AppCompatActivity {
         progressDialog = null;
     }
 
-
     private void getTestImageInfoFromServer() {
 
         picturePath = outputFileUri.getPath();
@@ -350,4 +409,51 @@ public class MainActivity extends AppCompatActivity {
         intent.setData(uri);
         startActivity(intent);
     }
+
+//    private void checkForPermissions() {
+//
+//        boolean internetPermission, writeExternalStoragePermission, readContactPermission, writeContactPermission, accessNetworkStatePermission;
+//        ArrayList<Boolean> permissionList = new ArrayList<>();
+//
+//        internetPermission = (internetPermissionCheck == PackageManager.PERMISSION_GRANTED) ? true : false;
+//        writeContactPermission = (writeExternalStoragePermissionCheck == PackageManager.PERMISSION_GRANTED) ? true : false;
+//        readContactPermission = (readContactsPermissionCheck == PackageManager.PERMISSION_GRANTED) ? true : false;
+//        writeExternalStoragePermission = (writeExternalStoragePermissionCheck == PackageManager.PERMISSION_GRANTED) ? true : false;
+//        accessNetworkStatePermission = (accessNetworkPermissionCheck == PackageManager.PERMISSION_GRANTED) ? true : false;
+//
+////        permissionList.add(internetPermission);
+////        permissionList.add(writeContactPermission);
+////        permissionList.add(readContactPermission);
+////        permissionList.add(writeContactPermission);
+////        permissionList.add(accessNetworkStatePermission);
+//
+//    }
+//
+//    private void requestPermission() {
+//        if (ContextCompat.checkSelfPermission(MainActivity.this,
+//                Manifest.permission.READ_CONTACTS)
+//                != PackageManager.PERMISSION_GRANTED) {
+//
+//            // Should we show an explanation?
+//            if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
+//                    Manifest.permission.READ_CONTACTS)) {
+//
+//                // Show an explanation to the user *asynchronously* -- don't block
+//                // this thread waiting for the user's response! After the user
+//                // sees the explanation, try again to request the permission.
+//
+//            } else {
+//
+//                // No explanation needed, we can request the permission.
+//
+//                ActivityCompat.requestPermissions(MainActivity.this,
+//                        new String[]{Manifest.permission.INTERNET},
+//                        internetPermissionCheck);
+//
+//                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
+//                // app-defined int constant. The callback method gets the
+//                // result of the request.
+//            }
+//        }
+//    }
 }

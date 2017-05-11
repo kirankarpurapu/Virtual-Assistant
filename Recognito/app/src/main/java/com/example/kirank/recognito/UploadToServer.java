@@ -55,12 +55,12 @@ public class UploadToServer {
                     new FilePart("file", image.getImageFile()),
                     new StringPart("contactid", "" + image.getId()),
                     new StringPart("imagename", image.getPersonName() + System.currentTimeMillis()+ ".jpg"),
-
             };
             MultipartEntity multipartEntity = new MultipartEntity(parts, httppost.getParams());
             httppost.setEntity(multipartEntity);
             HttpResponse response = httpclient.execute(httppost);
             resultString = EntityUtils.toString(response.getEntity());
+            Log.d(Constants.SERVER_UPLOAD_TAG, "result from new image upload " + resultString);
             jsonResult = new JSONObject(resultString);
             Log.d(Constants.SERVER_UPLOAD_TAG, "In the try Loop" + resultString);
         } catch (Exception e) {
