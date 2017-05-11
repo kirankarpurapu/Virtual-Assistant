@@ -27,6 +27,7 @@ import android.widget.Button;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.ArrayList;
@@ -126,11 +127,17 @@ public class MainActivity extends AppCompatActivity {
 
     private void newContactIntent(Bitmap bitmap, String picturePath) {
 
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 10, out);
+        Bitmap decoded = BitmapFactory.decodeStream(new ByteArrayInputStream(out.toByteArray()));
+
+
         ArrayList<ContentValues> data = new ArrayList<ContentValues>();
-        byte[] byteArray = bitMapToByteArray(bitmap);
+        byte[] byteArray = bitMapToByteArray(decoded);
         ContentValues row = new ContentValues();
+        row.put(ContactsContract.Data.IS_SUPER_PRIMARY, 1);
+        row.put(ContactsContract.CommonDataKinds.Photo.PHOTO, byteArray);
         row.put(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE);
-//        row.put(ContactsContract.CommonDataKinds.Photo.PHOTO, byteArray);
         data.add(row);
         Intent intent = new Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI);
         Log.d(Constants.MAIN_ACTIVITY_TAG, "trying to open the create contact intent");
@@ -197,6 +204,14 @@ public class MainActivity extends AppCompatActivity {
 
         if (requestCode == NEW_PHOTO_REQUEST && resultCode == RESULT_OK) {
             Log.d("MAIN_ACTIVITY_TAG", "2. output file URI " + outputFileUri);
+
+
+//            ****************************
+//            S3Upload s3UploadObject = new S3Upload(getApplicationContext());
+//            s3UploadObject.execute("recognito", outputFileUri.getPath());
+//            ****************************
+
+
             if (outputFileUri != null) {
                 picturePath = outputFileUri.getPath();
                 Log.d(TAG, " path of image: " + picturePath);

@@ -193,6 +193,49 @@ def hello():
 
 #type: POST, params = 'base64', 'ImageName', 'ImageInfo'
 
+
+
+# @app.route('/newS3Image', methods = ['POST'])
+# def s3_image():
+# 	result_json_dict = {}
+# 	if request.method == 'POST':
+# 		print("got a new image post request")	
+#       	data = request.form
+#       	if 'contactid' not in data or 's3_url' not in data:	
+#       		result_json_dict['message'] = 'insufficient data sent, please retry'
+#       		result_json_dict['result_status'] = -1
+#       		json_result = json.dumps(result_json_dict)
+#       		return json_result
+#       	else:		
+# 			image_info = str(data['contactid'])
+# 			s3_url = str(data['s3_url'])
+# 			print("got all the required info")
+# 			print("the id of the contact is ", image_info)
+# 			print("the url of the image is ", s3_url)
+			# encodings = get_face_encodings(image_name)
+			# if len(encodings) == 1:
+			# 	encodings = encodings[0]
+			# 	print("The encoding for the photo:", encodings)
+			# 	# thread.start_new_thread(write_to_database, (image_info, image_name, encodings, ))
+			# 	write_to_database(image_info, image_name, encodings)
+			# elif len(encodings) > 1:
+			# 	print("cannot handle multiple people in the image")
+			# 	result_json_dict['message'] = 'cannot handle multiple people in the image'
+			# 	result_json_dict['result_status'] = -1
+			# 	json_result = json.dumps(result_json_dict)
+			# 	return json_result
+			# else:
+			# 	print("no human found in the photo")
+			# 	result_json_dict['message'] = 'no human found in the photo'
+			# 	result_json_dict['result_status'] = -1
+			# 	json_result = json.dumps(result_json_dict)
+			# 	return json_result
+			# result_json_dict['message'] = 'Successfully added the new photo'
+			# result_json_dict['result_status'] = 1
+			# json_result = json.dumps(result_json_dict)
+			# return json_result	 
+
+
 @app.route('/newImage', methods=['POST'])
 def new_image():
 	result_json_dict = {}
@@ -218,6 +261,7 @@ def new_image():
 		else:
 			print("The name of the image is ", request.form['imagename'])	
 		image_name = request.form['imagename']
+		# image_name = "kiraninfor.jpg"
       	f.save(image_name)
       	print("The name of the file is ", image_name)
       	print("new method to save the file worked")
