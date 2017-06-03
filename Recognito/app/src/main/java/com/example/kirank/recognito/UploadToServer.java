@@ -52,6 +52,7 @@ public class UploadToServer {
             HttpClient httpclient = new DefaultHttpClient();
             HttpPost httppost = new HttpPost(Constants.NEW_IMAGE_URL);
             Part[] parts = {
+                    new StringPart("userid", "kiran1234"),
                     new FilePart("file", image.getImageFile()),
                     new StringPart("contactid", "" + image.getId()),
                     new StringPart("imagename", image.getPersonName() + System.currentTimeMillis()+ ".jpg"),
@@ -76,9 +77,11 @@ public class UploadToServer {
      */
     private static JSONObject uploadToTestImage(String base64String) {
         String resultString = null;
+        String dummy;
         JSONObject resultJson = null;
         ArrayList<NameValuePair> nameValuePairs = new ArrayList<>();
         nameValuePairs.add(new BasicNameValuePair("base64", base64String));
+        nameValuePairs.add(new BasicNameValuePair("userid", "kiran1234"));
         try {
             HttpClient httpclient = new DefaultHttpClient();
             HttpPost httppost = new HttpPost(Constants.TEST_IMAGE_URL);

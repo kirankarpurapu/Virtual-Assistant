@@ -7,10 +7,17 @@ package com.example.kirank.recognito;
 public class Constants {
 
 //    public static final String BASE_URL = "https://xhohjzmxdx.localtunnel.me";
-//    public static final String BASE_URL = "http://192.168.1.164:8000";
+//    public static final String BASE_URL = "http://192.168.200.4:8000";
+
+
+
+    public static final String BASE_URL = "http://54.202.80.134:8000";
+
+
 //    public static final String BASE_URL = "http://98.116.40.213:8000";
 //    public static final String BASE_URL = "http://127.0.0.1:8000";
-    public static final String BASE_URL = "http://edc1cd15.ngrok.io";
+
+//    public static final String BASE_URL = "http://5f0bd395.ngrok.io";
     public static final String PING_URL = BASE_URL;
     public static final String NEW_IMAGE_URL = BASE_URL + "/newImage";
     public static final String TEST_IMAGE_URL = BASE_URL + "/testImage";
